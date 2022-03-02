@@ -12,7 +12,7 @@ Dependencies: gdal, wget, requests, bs4
 
 """
 
-#To do: 
+#To do:
 #Integrate 1-km LULC data: http://www.landcover.org/data/landcover/
 #TODO: need to clean up toa handling
 
@@ -67,7 +67,7 @@ def get_bareground_fn():
         cmd = ['get_bareground.sh',]
         sys.exit("Missing bareground data source. If already downloaded, specify correct datadir. If not, run `%s` to download" % cmd[0])
         #subprocess.call(cmd)
-    return bg_fn 
+    return bg_fn
 
 #Download latest global RGI glacier db
 def get_glacier_poly():
@@ -88,7 +88,7 @@ def get_glacier_poly():
         cmd = ['get_rgi.sh',]
         sys.exit("Missing rgi glacier data source. If already downloaded, specify correct datadir. If not, run `%s` to download" % cmd[0])
         #subprocess.call(cmd)
-    return rgi_fn 
+    return rgi_fn
 
 #Update glacier polygons
 def get_icemask(ds, glac_shp_fn=None):
@@ -107,7 +107,22 @@ def get_icemask(ds, glac_shp_fn=None):
     icemask = geolib.shp2array(glac_shp_fn, ds)
     return icemask
 
-#Create nlcd mask 
+#Read in user-provided vector mask
+def get_custommask(ds, custom_shp_fn):
+    """Generate custom polygon raster mask for input Dataset res/extent
+    """
+    print("Masking custom vector")
+
+    if not os.path.exists(custom_shp_fn):
+        print("Unable to locate custom shp: %s" % custom_shp_fn)
+    else:
+        print("Found custom shp: %s" % custom_shp_fn)
+
+    #All of the proj, extent, handling should now occur in shp2array
+    custommask = geolib.shp2array(custom_shp_fn, ds)
+    return custommask
+
+#Create nlcd mask
 def get_nlcd_mask(nlcd_ds, filter='not_forest', out_fn=None):
     """Generate raster mask for specified NLCD LULC filter
     """
@@ -291,7 +306,7 @@ def get_modscag_fn_list(dem_dt, tile_list=('h08v04', 'h09v04', 'h10v04', 'h08v05
         #Note: not all tiles are available for same date ranges in historic vs. real-time
         #Need to repeat search tile-by-tile
         for tile in tile_list:
-            modscag_url_str = 'https://snow-data.jpl.nasa.gov/modscag-historic/%Y/%j/' 
+            modscag_url_str = 'https://snow-data.jpl.nasa.gov/modscag-historic/%Y/%j/'
             modscag_url_base = dt.strftime(modscag_url_str)
             print("Trying: %s" % modscag_url_base)
             r = requests.get(modscag_url_base, auth=auth)
@@ -301,11 +316,11 @@ def get_modscag_fn_list(dem_dt, tile_list=('h08v04', 'h09v04', 'h10v04', 'h08v05
                 modscag_url_fn = parsed_html.findAll(text=re.compile('%s.*snow_fraction.tif' % tile))
             if not modscag_url_fn:
                 #Couldn't find historic, try to use real-time products
-                modscag_url_str = 'https://snow-data.jpl.nasa.gov/modscag/%Y/%j/' 
+                modscag_url_str = 'https://snow-data.jpl.nasa.gov/modscag/%Y/%j/'
                 modscag_url_base = dt.strftime(modscag_url_str)
                 print("Trying: %s" % modscag_url_base)
                 r = requests.get(modscag_url_base, auth=auth)
-            if r.ok: 
+            if r.ok:
                 parsed_html = BeautifulSoup(r.content, "html.parser")
                 modscag_url_fn = parsed_html.findAll(text=re.compile('%s.*snow_fraction.tif' % tile))
             if not modscag_url_fn:
@@ -336,9 +351,9 @@ def get_modscag_fn_list(dem_dt, tile_list=('h08v04', 'h09v04', 'h10v04', 'h08v05
 def proc_modscag(fn_list, extent=None, t_srs=None):
     """Process the MODSCAG products for full date range, create composites and reproject
     """
-    #Use cubic spline here for improve upsampling 
+    #Use cubic spline here for improve upsampling
     ds_list = warplib.memwarp_multi_fn(fn_list, res='min', extent=extent, t_srs=t_srs, r='cubicspline')
-    stack_fn = os.path.splitext(fn_list[0])[0] + '_' + os.path.splitext(os.path.split(fn_list[-1])[1])[0] + '_stack_%i' % len(fn_list) 
+    stack_fn = os.path.splitext(fn_list[0])[0] + '_' + os.path.splitext(os.path.split(fn_list[-1])[1])[0] + '_stack_%i' % len(fn_list)
     #Create stack here - no need for most of mastack machinery, just make 3D array
     #Mask values greater than 100% (clouds, bad pixels, etc)
     ma_stack = np.ma.array([np.ma.masked_greater(iolib.ds_getma(ds), 100) for ds in np.array(ds_list)], dtype=np.uint8)
@@ -411,13 +426,13 @@ def get_toa_mask(toa_ds, toa_thresh=0.4):
 def check_mask_list(mask_list):
     temp = []
     for m in mask_list:
-        if m not in mask_choices: 
+        if m not in mask_choices:
             print("Invalid mask choice: %s" % m)
         else:
             temp.append(m)
     return temp
 
-def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, args=None):
+def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, custom_mask_fn=None, args=None):
     mask_list = check_mask_list(mask_list)
     if not mask_list or 'none' in mask_list:
         newmask = False
@@ -433,14 +448,14 @@ def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, args=N
             #Extract DEM timestamp
             dem_dt = timelib.fn_getdatetime(dem_fn)
             out_fn_base = os.path.join(outdir, os.path.splitext(os.path.split(dem_fn)[-1])[0])
-        
+
         if args is None:
             #Get default values
             parser = getparser()
             args = parser.parse_args(['',])
 
         newmask = True
-        
+
         if 'glaciers' in mask_list:
             icemask = get_icemask(dem_ds)
             if writeout:
@@ -480,7 +495,7 @@ def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, args=N
         if 'snodas' in mask_list and args.snodas_thresh > 0:
             #Get SNODAS snow depth products for DEM timestamp
             snodas_min_dt = datetime(2003,9,30)
-            if dem_dt >= snodas_min_dt: 
+            if dem_dt >= snodas_min_dt:
                 snodas_ds = get_snodas_ds(dem_dt)
                 if snodas_ds is not None:
                     snodas_ds_warp = warplib.memwarp_multi([snodas_ds,], res=dem_ds, extent=dem_ds, t_srs=dem_ds, r='cubicspline')[0]
@@ -503,11 +518,19 @@ def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, args=N
                     else:
                         print("SNODAS grid for input location and timestamp is empty")
 
+        if 'custom' in mask_list:
+            custommask = get_custommask(dem_ds, custom_mask_fn)
+            if writeout:
+                out_fn = out_fn_base+'_custom_mask.tif'
+                print("Writing out %s" % out_fn)
+                iolib.writeGTiff(custommask, out_fn, src_ds=dem_ds)
+            newmask = np.logical_and(custommask, newmask)
+
         #These tiles cover CONUS
         #tile_list=('h08v04', 'h09v04', 'h10v04', 'h08v05', 'h09v05')
         if 'modscag' in mask_list and args.modscag_thresh > 0:
             modscag_min_dt = datetime(2000,2,24)
-            if dem_dt < modscag_min_dt: 
+            if dem_dt < modscag_min_dt:
                 print("Warning: DEM timestamp (%s) is before earliest MODSCAG timestamp (%s)" \
                         % (dem_dt, modscag_min_dt))
             else:
@@ -525,7 +548,7 @@ def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, args=N
                         out_fn = out_fn_base+'_modscag_fsca.tif'
                         print("Writing out %s" % out_fn)
                         iolib.writeGTiff(modscag_fsca, out_fn, src_ds=dem_ds)
-                    modscag_mask = (modscag_fsca.filled(0) >= args.modscag_thresh) 
+                    modscag_mask = (modscag_fsca.filled(0) >= args.modscag_thresh)
                     modscag_mask = ~(modscag_mask)
                     if writeout:
                         out_fn = os.path.splitext(out_fn)[0]+'_mask.tif'
@@ -548,18 +571,18 @@ def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, args=N
         if False:
             #Filter based on expected snowline
             #Simplest approach uses altitude cutoff
-            max_elev = 1500 
+            max_elev = 1500
             newdem = np.ma.masked_greater(dem, max_elev)
             newmask = np.ma.getmaskarray(newdem)
 
         print("Generating final mask to use for reference surfaces, and applying to input DEM")
         #Now invert to use to create final masked array
-        #True (1) represents "invalid" pixel to match numpy ma convetion 
+        #True (1) represents "invalid" pixel to match numpy ma convetion
         newmask = ~newmask
 
         #Dilate the mask
         if args.dilate is not None:
-            niter = args.dilate 
+            niter = args.dilate
             print("Dilating mask with %i iterations" % niter)
             from scipy import ndimage
             newmask = ~(ndimage.morphology.binary_dilation(~newmask, iterations=niter))
@@ -567,9 +590,9 @@ def get_mask(dem_ds, mask_list, dem_fn=None, writeout=False, outdir=None, args=N
     return newmask
 
 #Can add "mask_list" argument, instead of specifying individually
-mask_choices = ['toa', 'snodas', 'modscag', 'bareground', 'glaciers', 'nlcd', 'none']
+mask_choices = ['toa', 'snodas', 'modscag', 'bareground', 'glaciers', 'nlcd', 'custom', 'none']
 def getparser():
-    parser = argparse.ArgumentParser(description="Identify control surfaces for DEM co-registration") 
+    parser = argparse.ArgumentParser(description="Identify control surfaces for DEM co-registration")
     parser.add_argument('dem_fn', type=str, help='DEM filename')
     parser.add_argument('--outdir', default=None, help='Directory for output products')
     parser.add_argument('--writeout', action='store_true', help='Write out all intermediate products, instead of only final tif')
@@ -585,7 +608,8 @@ def getparser():
     parser.add_argument('--glaciers', action='store_true', help="Mask glacier polygons")
     parser.add_argument('--nlcd', action='store_true', help="Enable NLCD LULC filter (for CONUS)")
     nlcd_filter_choices = ['rock', 'rock+ice', 'rock+ice+water', 'not_forest', 'not_forest+not_water', 'none']
-    parser.add_argument('--nlcd_filter', type=str, default='not_forest', choices=nlcd_filter_choices, help='Preserve these NLCD pixels (default: %(default)s)') 
+    parser.add_argument('--nlcd_filter', type=str, default='not_forest', choices=nlcd_filter_choices, help='Preserve these NLCD pixels (default: %(default)s)')
+    parser.add_argument('--custom', type=str, help='Custom mask shapefile')
     parser.add_argument('--dilate', type=int, default=None, help='Dilate mask with this many iterations (default: %(default)s)')
     return parser
 
@@ -594,12 +618,13 @@ def main():
     args = parser.parse_args()
 
     mask_list = []
-    if args.toa: mask_list.append('toa') 
-    if args.snodas: mask_list.append('snodas') 
-    if args.modscag: mask_list.append('modscag') 
-    if args.bareground: mask_list.append('bareground') 
-    if args.glaciers: mask_list.append('glaciers') 
-    if args.nlcd: mask_list.append('nlcd') 
+    if args.toa: mask_list.append('toa')
+    if args.snodas: mask_list.append('snodas')
+    if args.modscag: mask_list.append('modscag')
+    if args.bareground: mask_list.append('bareground')
+    if args.glaciers: mask_list.append('glaciers')
+    if args.nlcd: mask_list.append('nlcd')
+    if args.custom: mask_list.append('custom')
 
     if not mask_list:
         parser.print_help()
@@ -628,9 +653,9 @@ def main():
             os.makedirs(args.outdir)
     else:
         args.outdir = os.path.split(os.path.realpath(dem_fn))[0]
-    
+
     newmask = get_mask(dem_ds, mask_list, dem_fn=dem_fn, writeout=args.writeout, outdir=args.outdir, args=args)
-    
+
     #Apply mask to original DEM - use these surfaces for co-registration
     newdem = np.ma.array(dem, mask=newmask)
 

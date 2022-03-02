@@ -23,9 +23,9 @@ from imview.lib import pltlib
 #Turn off numpy multithreading
 #os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
-def get_mask(ds, mask_list, dem_fn=None):
+def get_mask(ds, mask_list, dem_fn=None, custom_mask_fn=None):
     #This returns True (1) for areas to mask, False (0) for valid static surfaces
-    static_mask = dem_mask.get_mask(ds, mask_list, dem_fn, writeout=False)
+    static_mask = dem_mask.get_mask(ds, mask_list, dem_fn, custom_mask_fn, writeout=False)
     #return ~(static_mask)
     return static_mask
 
