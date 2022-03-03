@@ -25,7 +25,7 @@ from imview.lib import pltlib
 
 def get_mask(ds, mask_list, custom_mask_fn, dem_fn=None):
     #This returns True (1) for areas to mask, False (0) for valid static surfaces
-    static_mask = dem_mask.get_mask(ds, mask_list, dem_fn, custom_mask_fn=custom_mask_fn, writeout=False)
+    static_mask = dem_mask.get_mask(ds, mask_list, dem_fn, custom_mask_fn, writeout=False)
     #return ~(static_mask)
     return static_mask
 
