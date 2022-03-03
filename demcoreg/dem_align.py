@@ -23,7 +23,7 @@ from imview.lib import pltlib
 #Turn off numpy multithreading
 #os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
-def get_mask(ds, mask_list, dem_fn=None, custom_mask_fn=None):
+def get_mask(ds, mask_list, custom_mask_fn, dem_fn=None):
     #This returns True (1) for areas to mask, False (0) for valid static surfaces
     static_mask = dem_mask.get_mask(ds, mask_list, dem_fn, custom_mask_fn, writeout=False)
     #return ~(static_mask)
@@ -82,7 +82,7 @@ def compute_offset(ref_dem_ds, src_dem_ds, src_dem_fn, mode='nuth', remove_outli
     print("Elevation difference stats for uncorrected input DEMs (src - ref)")
     diff = src_dem - ref_dem
 
-    static_mask = get_mask(src_dem_clip_ds, mask_list, src_dem_fn)
+    static_mask = get_mask(src_dem_clip_ds, mask_list, src_dem_fn, custom_mask_fn)
     diff = np.ma.array(diff, mask=static_mask)
 
     if diff.count() == 0:
@@ -217,6 +217,7 @@ def main(argv=None):
     tiltcorr = args.tiltcorr
     polyorder = args.polyorder
     res = args.res
+    custom_mask_fn = args.custom_mask_fn
 
     #Maximum number of iterations
     max_iter = args.max_iter
@@ -347,7 +348,7 @@ def main(argv=None):
                 ref_dem_align = None
 
                 #Get updated, final mask
-                static_mask_final = get_mask(src_dem_clip_ds_align, mask_list, src_dem_fn)
+                static_mask_final = get_mask(src_dem_clip_ds_align, mask_list, custom_mask_fn, src_dem_fn)
                 static_mask_final = np.logical_or(np.ma.getmaskarray(diff_align), static_mask_final)
                 
                 #Final stats, before outlier removal
@@ -484,7 +485,7 @@ def main(argv=None):
         src_dem_hs = geolib.gdaldem_mem_ds(src_dem_clip_ds, processing='hillshade', returnma=True, computeEdges=True)
         diff_orig = src_dem_orig - ref_dem_orig
         #Only compute stats over valid surfaces
-        static_mask_orig = get_mask(src_dem_clip_ds, mask_list, src_dem_fn)
+        static_mask_orig = get_mask(src_dem_clip_ds, mask_list, custom_mask_fn, src_dem_fn)
         #Note: this doesn't include outlier removal or slope mask!
         static_mask_orig = np.logical_or(np.ma.getmaskarray(diff_orig), static_mask_orig)
         #For some reason, ASTER DEM diff have a spike near the 0 bin, could be an issue with masking?
