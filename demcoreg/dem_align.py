@@ -180,6 +180,7 @@ def getparser():
             help='Type of co-registration to use')
     parser.add_argument('-mask_list', nargs='+', type=str, default=[], choices=dem_mask.mask_choices, \
             help='Define masks to use to limit reference surfaces for co-registration')
+    parser.add_argument('-custom_mask_fn', type=str, help='Path to shapefile for user-defined vector mask'), \
     parser.add_argument('-tiltcorr', action='store_true', \
             help='After preliminary translation, fit polynomial to residual elevation offsets and remove')
     parser.add_argument('-polyorder', type=int, default=1, \
