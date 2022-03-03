@@ -60,7 +60,7 @@ def get_filtered_slope(ds, slope_lim=(0.1, 40)):
     return slope
 
 def compute_offset(ref_dem_ds, src_dem_ds, src_dem_fn, mode='nuth', remove_outliers=True, max_offset=100, \
-        max_dz=100, slope_lim=(0.1, 40), mask_list=['glaciers',], plot=True):
+        max_dz=100, slope_lim=(0.1, 40), mask_list=['glaciers',], custom_mask_fn=None, plot=True):
     #Make sure the input datasets have the same resolution/extent
     #Use projection of source DEM
     ref_dem_clip_ds, src_dem_clip_ds = warplib.memwarp_multi([ref_dem_ds, src_dem_ds], \
