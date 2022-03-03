@@ -25,7 +25,7 @@ from imview.lib import pltlib
 
 def get_mask(ds, mask_list, custom_mask_fn, dem_fn=None):
     #This returns True (1) for areas to mask, False (0) for valid static surfaces
-    static_mask = dem_mask.get_mask(ds, mask_list, dem_fn, custom_mask_fn, writeout=False)
+    static_mask = dem_mask.get_mask(ds, mask_list, dem_fn, custom_mask_fn=custom_mask_fn, writeout=False)
     #return ~(static_mask)
     return static_mask
 
@@ -288,7 +288,7 @@ def main(argv=None):
     while True:
         print("*** Iteration %i ***" % n)
         dx, dy, dz, static_mask, fig = compute_offset(ref_dem_ds, src_dem_ds_align, src_dem_fn, mode, max_offset, \
-                mask_list=mask_list, max_dz=max_dz, slope_lim=slope_lim, plot=True)
+                mask_list=mask_list, custom_mask_fn=custom_mask_fn, max_dz=max_dz, slope_lim=slope_lim, plot=True)
         xyz_shift_str_iter = "dx=%+0.2fm, dy=%+0.2fm, dz=%+0.2fm" % (dx, dy, dz)
         print("Incremental offset: %s" % xyz_shift_str_iter)
 
